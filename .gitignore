@@ -1,0 +1,25 @@
+# Build
+build/
+build-*/
+*.o
+*.obj
+*.moc
+*.exe
+*.dll
+*.a
+*.lib
+moc_*.cpp
+ui_*.h
+qrc_*.cpp
+
+# IDE
+.vs/
+.idea/
+*.user
+*.pro.user
+CMakeLists.txt.user
+CMakeUserPresets.json
+
+# OS
+.DS_Store
+Thumbs.db
