@@ -16,6 +16,7 @@ class MainWindow : public QMainWindow
 public:
     explicit MainWindow(ChatClient *client, QWidget *parent = nullptr);
 
+    void setMyself(const QString &username);
     void setUserList(const QStringList &users);
     void addUser(const QString &username);
     void removeUser(const QString &username);

@@ -5,6 +5,8 @@
 ChatClient::ChatClient(QObject *parent)
     : QObject(parent), m_socket(new QTcpSocket(this))
 {
+    connect(m_socket, &QTcpSocket::connected,
+            this, &ChatClient::doLogin);
     connect(m_socket, &QTcpSocket::readyRead,
             this, &ChatClient::onReadyRead);
     connect(m_socket, &QTcpSocket::disconnected,
@@ -23,7 +25,19 @@ bool ChatClient::isConnected() const
 
 void ChatClient::login(const QString &username)
 {
-    Protocol::sendMessage(m_socket, Protocol::buildLogin(username));
+    m_pendingLogin = username;
+    if (m_socket->state() == QAbstractSocket::ConnectedState) {
+        doLogin();
+    }
+    // 否则等 connected 信号触发 doLogin
+}
+
+void ChatClient::doLogin()
+{
+    if (m_pendingLogin.isEmpty())
+        return;
+    Protocol::sendMessage(m_socket, Protocol::buildLogin(m_pendingLogin));
+    m_pendingLogin.clear();
 }
 
 void ChatClient::sendMessage(const QString &to, const QString &content)

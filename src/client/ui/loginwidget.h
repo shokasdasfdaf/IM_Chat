@@ -14,7 +14,7 @@ public:
     explicit LoginWidget(ChatClient *client, QWidget *parent = nullptr);
 
 signals:
-    void loginSucceeded(const QStringList &users);
+    void loginSucceeded(const QString &username, const QStringList &users);
 
 private slots:
     void onLoginClicked();

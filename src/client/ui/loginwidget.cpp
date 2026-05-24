@@ -34,13 +34,16 @@ LoginWidget::LoginWidget(ChatClient *client, QWidget *parent)
 
     connect(m_client, &ChatClient::loginSuccess, this, [this](const QStringList &users) {
         m_statusLabel->setText("登录成功");
-        emit loginSucceeded(users);
+        m_loginBtn->setEnabled(true);
+        emit loginSucceeded(m_nameEdit->text().trimmed(), users);
     });
     connect(m_client, &ChatClient::loginFailed, this, [this](const QString &reason) {
         m_statusLabel->setText("登录失败: " + reason);
+        m_loginBtn->setEnabled(true);
     });
     connect(m_client, &ChatClient::connectionError, this, [this](const QString &err) {
         m_statusLabel->setText("连接错误: " + err);
+        m_loginBtn->setEnabled(true);
     });
 
     setWindowTitle("即时通讯 — 登录");
@@ -61,5 +64,4 @@ void LoginWidget::onLoginClicked()
     m_client->connectToServer(m_serverEdit->text().trimmed(),
                               m_portEdit->text().toUShort());
     m_client->login(name);
-    m_loginBtn->setEnabled(true);
 }

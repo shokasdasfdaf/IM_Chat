@@ -11,9 +11,13 @@ find_package(Qt6 REQUIRED COMPONENTS Core Network Widgets Sql)
 add_library(common STATIC
     src/common/protocol.h
     src/common/protocol.cpp
+    src/common/Worker.h
+    src/common/Worker.cpp
+    src/common/DatabaseWorker.h
+    src/common/DatabaseWorker.cpp
 )
 target_include_directories(common PUBLIC src/common)
-target_link_libraries(common PUBLIC Qt6::Core Qt6::Network)
+target_link_libraries(common PUBLIC Qt6::Core Qt6::Network Qt6::Sql)
 
 # --- Server (console) ---
 add_executable(server
@@ -26,7 +30,7 @@ add_executable(server
 target_link_libraries(server PRIVATE common Qt6::Network Qt6::Sql)
 
 # --- Client (GUI) ---
-add_executable(client
+add_executable(client WIN32
     src/client/main.cpp
     src/client/chatclient.h
     src/client/chatclient.cpp

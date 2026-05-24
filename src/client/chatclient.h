@@ -30,5 +30,8 @@ private slots:
     void onDisconnected();
 
 private:
+    void doLogin();
+
     QTcpSocket *m_socket;
+    QString m_pendingLogin;
 };

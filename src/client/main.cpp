@@ -13,7 +13,8 @@ int main(int argc, char *argv[])
     MainWindow mainWindow(&client);
 
     QObject::connect(&loginWidget, &LoginWidget::loginSucceeded,
-                     &mainWindow, [&](const QStringList &users) {
+                     &mainWindow, [&](const QString &username, const QStringList &users) {
+        mainWindow.setMyself(username);
         mainWindow.setUserList(users);
         mainWindow.show();
         loginWidget.hide();

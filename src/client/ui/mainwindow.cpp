@@ -48,6 +48,11 @@ MainWindow::MainWindow(ChatClient *client, QWidget *parent)
             this, &MainWindow::onMessageReceived);
 }
 
+void MainWindow::setMyself(const QString &username)
+{
+    m_myName = username;
+}
+
 void MainWindow::setUserList(const QStringList &users)
 {
     m_userList->clear();

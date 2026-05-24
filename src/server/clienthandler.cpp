@@ -26,6 +26,8 @@ void ClientHandler::onReadyRead()
             emit loginRequest(msg["username"].toString());
         } else if (type == Protocol::CHAT) {
             emit chatMessage(msg["to"].toString(), msg["content"].toString());
+        } else if (type == Protocol::HISTORY) {
+            emit historyRequest(msg["keyword"].toString());
         }
     }
 }

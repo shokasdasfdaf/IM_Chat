@@ -18,6 +18,7 @@ public:
 signals:
     void loginRequest(const QString &username);
     void chatMessage(const QString &to, const QString &content);
+    void historyRequest(const QString &keyword);
     void disconnected();
 
 private slots:
