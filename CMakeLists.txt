@@ -30,7 +30,7 @@ add_executable(server
 target_link_libraries(server PRIVATE common Qt6::Network Qt6::Sql)
 
 # --- Client (GUI) ---
-add_executable(client WIN32
+add_executable(client
     src/client/main.cpp
     src/client/chatclient.h
     src/client/chatclient.cpp

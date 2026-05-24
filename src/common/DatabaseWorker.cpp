@@ -63,6 +63,7 @@ void DatabaseWorker::saveMessage(const QString &from, const QString &to, const Q
         emit messageSaved(false);
         return;
     }
+    qDebug() << "Message saved:" << from << "->" << to << ":" << content;
     emit messageSaved(true);
 }
 
@@ -84,6 +85,7 @@ void DatabaseWorker::searchHistory(const QString &keyword)
         return;
     }
 
+    qDebug() << "History search for:" << keyword;
     QJsonArray results;
     while (query.next()) {
         QJsonObject msg;

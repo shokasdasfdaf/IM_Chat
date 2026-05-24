@@ -1,5 +1,10 @@
 #include "protocol.h"
 #include <QDataStream>
+#include <QHash>
+
+namespace {
+    thread_local QHash<QTcpSocket *, QByteArray> s_buffers;
+}
 
 // 4 字节大端长度头 + JSON
 QByteArray Protocol::pack(const QJsonObject &json)
@@ -34,8 +39,7 @@ QList<QJsonObject> Protocol::receiveMessages(QTcpSocket *socket)
     QByteArray raw = socket->readAll();
 
     // 追加到内部缓冲区
-    static thread_local QHash<QTcpSocket *, QByteArray> buffers;
-    QByteArray &buffer = buffers[socket];
+    QByteArray &buffer = s_buffers[socket];
     buffer.append(raw);
 
     // 解析长度头 + JSON
@@ -59,6 +63,11 @@ QList<QJsonObject> Protocol::receiveMessages(QTcpSocket *socket)
     }
 
     return messages;
+}
+
+void Protocol::resetBuffer(QTcpSocket *socket)
+{
+    s_buffers.remove(socket);
 }
 
 // ---- 构建消息 ----

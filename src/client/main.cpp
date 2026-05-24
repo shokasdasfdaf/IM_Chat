@@ -24,6 +24,18 @@ int main(int argc, char *argv[])
                      &mainWindow, &MainWindow::addUser);
     QObject::connect(&client, &ChatClient::userLeft,
                      &mainWindow, &MainWindow::removeUser);
+    QObject::connect(&client, &ChatClient::connectionError,
+                     &mainWindow, [&mainWindow](const QString &err) {
+        mainWindow.setWindowTitle("即时通讯 — 连接已断开！");
+    });
+    QObject::connect(&client, &ChatClient::reconnecting,
+                     &mainWindow, [&mainWindow] {
+        mainWindow.setWindowTitle("即时通讯 — 重连中...");
+    });
+    QObject::connect(&client, &ChatClient::reconnected,
+                     &mainWindow, [&mainWindow] {
+        mainWindow.setWindowTitle("即时通讯");
+    });
 
     loginWidget.show();
     return app.exec();

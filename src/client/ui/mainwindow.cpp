@@ -3,6 +3,8 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QSplitter>
+#include <QJsonArray>
+#include <QJsonObject>
 
 MainWindow::MainWindow(ChatClient *client, QWidget *parent)
     : QMainWindow(parent), m_client(client)
@@ -29,6 +31,15 @@ MainWindow::MainWindow(ChatClient *client, QWidget *parent)
 
     mainLayout->addWidget(splitter);
 
+    // 搜索区
+    auto *searchLayout = new QHBoxLayout;
+    auto *searchEdit = new QLineEdit;
+    searchEdit->setPlaceholderText("搜索聊天记录...");
+    auto *searchBtn = new QPushButton("搜索");
+    searchLayout->addWidget(searchEdit);
+    searchLayout->addWidget(searchBtn);
+    mainLayout->addLayout(searchLayout);
+
     // 输入区
     auto *inputLayout = new QHBoxLayout;
     m_inputEdit = new QLineEdit;
@@ -46,6 +57,28 @@ MainWindow::MainWindow(ChatClient *client, QWidget *parent)
             this, &MainWindow::onSendMessage);
     connect(m_client, &ChatClient::messageReceived,
             this, &MainWindow::onMessageReceived);
+    connect(m_client, &ChatClient::historyReceived,
+            this, [this](const QJsonArray &results) {
+        QString text = "=== 搜索结果 ===<br>";
+        for (const QJsonValue &v : results) {
+            QJsonObject msg = v.toObject();
+            text += "[" + msg["time"].toString() + "] "
+                 + msg["from"].toString() + " -> " + msg["to"].toString()
+                 + ": " + msg["content"].toString() + "<br>";
+        }
+        if (results.isEmpty())
+            text += "无结果";
+        switchToUser("搜索结果");
+        m_chatPages["搜索结果"]->setHtml(text);
+    });
+    connect(searchBtn, &QPushButton::clicked, this, [this, searchEdit]() {
+        QString kw = searchEdit->text().trimmed();
+        if (!kw.isEmpty())
+            m_client->requestHistory(kw);
+    });
+    connect(searchEdit, &QLineEdit::returnPressed, this, [searchBtn]() {
+        searchBtn->click();
+    });
 }
 
 void MainWindow::setMyself(const QString &username)

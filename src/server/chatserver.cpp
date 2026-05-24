@@ -64,12 +64,14 @@ void ChatServer::onLoginRequest(const QString &username)
     if (!handler)
         return;
 
+    // 重连场景：同一用户名重新登录，踢掉旧连接
     if (m_users.contains(username)) {
-        handler->sendJson(QJsonObject{
-            {"type", Protocol::LOGIN_FAILED},
-            {"reason", "用户名已在线"}
-        });
-        return;
+        auto *oldHandler = m_users[username];
+        m_clients.removeOne(oldHandler);
+        m_users.remove(username);
+        oldHandler->setUsername(QString());  // 清空用户名，防止 onDisconnected 误广播
+        oldHandler->deleteLater();
+        qDebug() << "Kicked old connection for:" << username;
     }
 
     handler->setUsername(username);

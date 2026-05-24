@@ -13,8 +13,10 @@ public:
     static constexpr const char *LOGIN   = "login";
     static constexpr const char *CHAT    = "chat";
     static constexpr const char *HISTORY = "history";
+    static constexpr const char *PING    = "ping";
 
     // 服务器 → 客户端
+    static constexpr const char *PONG          = "pong";
     static constexpr const char *LOGIN_OK      = "login_ok";
     static constexpr const char *LOGIN_FAILED  = "login_failed";
     static constexpr const char *USER_JOINED   = "user_joined";
@@ -40,6 +42,9 @@ public:
     // ---- 接收消息（处理粘包）----
     // 从 socket 读取所有可用数据，解析出完整的 JSON 对象列表
     static QList<QJsonObject> receiveMessages(QTcpSocket *socket);
+
+    // 清空 socket 对应的缓冲区（重连时调用，避免旧数据污染）
+    static void resetBuffer(QTcpSocket *socket);
 
 private:
     static QByteArray pack(const QJsonObject &json);

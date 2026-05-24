@@ -28,6 +28,10 @@ void ClientHandler::onReadyRead()
             emit chatMessage(msg["to"].toString(), msg["content"].toString());
         } else if (type == Protocol::HISTORY) {
             emit historyRequest(msg["keyword"].toString());
+        } else if (type == Protocol::PING) {
+            QJsonObject pong;
+            pong["type"] = Protocol::PONG;
+            sendJson(pong);
         }
     }
 }
