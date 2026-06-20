@@ -14,6 +14,7 @@ public:
     void connectToServer(const QString &host, quint16 port);
     void login(const QString &username);
     void sendMessage(const QString &to, const QString &content);
+    void sendAck(const QString &fromUser);
     void requestHistory(const QString &keyword);
     bool isConnected() const;
 
@@ -22,7 +23,7 @@ signals:
     void loginFailed(const QString &reason);
     void userJoined(const QString &username);
     void userLeft(const QString &username);
-    void messageReceived(const QString &from, const QString &content);
+    void messageReceived(const QString &from, const QString &content, int msgId);
     void historyReceived(const QJsonArray &messages);
     void connectionError(const QString &error);
     void reconnecting();

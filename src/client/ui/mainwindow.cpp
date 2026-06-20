@@ -2,7 +2,10 @@
 #include "../chatclient.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
+#include <QGridLayout>
 #include <QSplitter>
+#include <QMenu>
+#include <QWidgetAction>
 #include <QJsonArray>
 #include <QJsonObject>
 
@@ -12,12 +15,10 @@ MainWindow::MainWindow(ChatClient *client, QWidget *parent)
     setWindowTitle("即时通讯");
     resize(800, 500);
 
-    // 中央部件
     auto *centralWidget = new QWidget(this);
     setCentralWidget(centralWidget);
     auto *mainLayout = new QVBoxLayout(centralWidget);
 
-    // 上下分屏：用户列表+聊天区域 / 输入区
     auto *splitter = new QSplitter(Qt::Horizontal);
 
     m_userList = new QListWidget;
@@ -31,7 +32,6 @@ MainWindow::MainWindow(ChatClient *client, QWidget *parent)
 
     mainLayout->addWidget(splitter);
 
-    // 搜索区
     auto *searchLayout = new QHBoxLayout;
     auto *searchEdit = new QLineEdit;
     searchEdit->setPlaceholderText("搜索聊天记录...");
@@ -40,15 +40,19 @@ MainWindow::MainWindow(ChatClient *client, QWidget *parent)
     searchLayout->addWidget(searchBtn);
     mainLayout->addLayout(searchLayout);
 
-    // 输入区
     auto *inputLayout = new QHBoxLayout;
+    m_emojiBtn = new QPushButton("😀");
+    m_emojiBtn->setFixedWidth(36);
     m_inputEdit = new QLineEdit;
     m_inputEdit->setPlaceholderText("输入消息，Enter 发送");
     m_sendBtn = new QPushButton("发送");
+    inputLayout->addWidget(m_emojiBtn);
     inputLayout->addWidget(m_inputEdit);
     inputLayout->addWidget(m_sendBtn);
     mainLayout->addLayout(inputLayout);
 
+    connect(m_emojiBtn, &QPushButton::clicked,
+            this, &MainWindow::onEmojiClicked);
     connect(m_userList, &QListWidget::itemClicked,
             this, &MainWindow::onUserSelected);
     connect(m_sendBtn, &QPushButton::clicked,
@@ -97,9 +101,8 @@ void MainWindow::addUser(const QString &username)
 {
     if (username == m_myName)
         return;
-    // 检查是否已存在
     for (int i = 0; i < m_userList->count(); ++i) {
-        if (m_userList->item(i)->text() == username)
+        if (m_userList->item(i)->text().remove(" (未读)") == username)
             return;
     }
     m_userList->addItem(username);
@@ -108,7 +111,7 @@ void MainWindow::addUser(const QString &username)
 void MainWindow::removeUser(const QString &username)
 {
     for (int i = 0; i < m_userList->count(); ++i) {
-        if (m_userList->item(i)->text() == username) {
+        if (m_userList->item(i)->text().remove(" (未读)") == username) {
             delete m_userList->takeItem(i);
             break;
         }
@@ -117,14 +120,14 @@ void MainWindow::removeUser(const QString &username)
 
 void MainWindow::onUserSelected(QListWidgetItem *item)
 {
-    switchToUser(item->text());
+    QString username = item->text().remove(" (未读)");
+    switchToUser(username);
 }
 
 void MainWindow::switchToUser(const QString &username)
 {
     m_currentUser = username;
 
-    // 没有该用户的聊天页则创建
     if (!m_chatPages.contains(username)) {
         auto *chat = new QTextEdit;
         chat->setReadOnly(true);
@@ -134,6 +137,13 @@ void MainWindow::switchToUser(const QString &username)
 
     m_chatStack->setCurrentWidget(m_chatPages[username]);
     setWindowTitle("即时通讯 — 与 " + username + " 聊天中");
+
+    // 清除未读标记并发送 ACK
+    if (m_unreadUsers.contains(username)) {
+        m_unreadUsers.remove(username);
+        updateUserListItem(username);
+        m_client->sendAck(username);
+    }
 }
 
 void MainWindow::onSendMessage()
@@ -144,7 +154,6 @@ void MainWindow::onSendMessage()
 
     m_client->sendMessage(m_currentUser, content);
 
-    // 显示自己发的消息
     auto *chat = m_chatPages.value(m_currentUser);
     if (chat)
         chat->append("我: " + content);
@@ -152,10 +161,76 @@ void MainWindow::onSendMessage()
     m_inputEdit->clear();
 }
 
-void MainWindow::onMessageReceived(const QString &from, const QString &content)
+void MainWindow::onMessageReceived(const QString &from, const QString &content, int msgId)
 {
-    switchToUser(from);
+    Q_UNUSED(msgId);
+
+    // 确保聊天页存在
+    if (!m_chatPages.contains(from)) {
+        auto *chat = new QTextEdit;
+        chat->setReadOnly(true);
+        m_chatPages.insert(from, chat);
+        m_chatStack->addWidget(chat);
+    }
+
     auto *chat = m_chatPages.value(from);
     if (chat)
         chat->append(from + ": " + content);
+
+    // 当前正在和这个人聊天，自动标记已读
+    if (m_currentUser == from) {
+        m_client->sendAck(from);
+    } else {
+        m_unreadUsers.insert(from);
+        updateUserListItem(from);
+    }
+}
+
+void MainWindow::updateUserListItem(const QString &username)
+{
+    for (int i = 0; i < m_userList->count(); ++i) {
+        QListWidgetItem *item = m_userList->item(i);
+        QString baseName = item->text().remove(" (未读)");
+        if (baseName == username) {
+            if (m_unreadUsers.contains(username))
+                item->setText(username + " (未读)");
+            else
+                item->setText(username);
+            return;
+        }
+    }
+}
+
+void MainWindow::onEmojiClicked()
+{
+    const QStringList emojis = {
+        "😀", "😃", "😄", "😁", "😅", "😂", "🤣", "😊", "😇", "🙂",
+        "😉", "😍", "😘", "😗", "😋", "😛", "😜", "🤔", "🤗", "😎",
+        "😕", "😟", "😔", "😢", "😭", "😤", "😡", "😈", "💀", "👍",
+        "👎", "👌", "✌", "🤞", "👏", "👋", "🙌", "🙏", "💪", "🎉",
+        "🎊", "🎂", "💕", "💔", "💖", "💗", "❤", "💙", "💚", "💛"
+    };
+
+    auto *menu = new QMenu(this);
+    auto *grid = new QWidget;
+    auto *gridLayout = new QGridLayout(grid);
+    gridLayout->setSpacing(2);
+    gridLayout->setContentsMargins(4, 4, 4, 4);
+
+    for (int i = 0; i < emojis.size(); ++i) {
+        auto *btn = new QPushButton(emojis[i]);
+        btn->setFixedSize(32, 28);
+        btn->setStyleSheet("QPushButton { border: none; font-size: 16px; }"
+                           "QPushButton:hover { background: #d0d0d0; border-radius: 4px; }");
+        connect(btn, &QPushButton::clicked, this, [this, emoji = emojis[i]]() {
+            m_inputEdit->insert(emoji);
+        });
+        gridLayout->addWidget(btn, i / 10, i % 10);
+    }
+
+    auto *action = new QWidgetAction(menu);
+    action->setDefaultWidget(grid);
+    menu->addAction(action);
+    menu->exec(m_emojiBtn->mapToGlobal(QPoint(0, m_emojiBtn->height())));
+    menu->deleteLater();
 }

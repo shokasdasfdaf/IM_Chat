@@ -32,6 +32,8 @@ void ClientHandler::onReadyRead()
             QJsonObject pong;
             pong["type"] = Protocol::PONG;
             sendJson(pong);
+        } else if (type == Protocol::ACK) {
+            emit ackRequest(msg["from"].toString());
         }
     }
 }
