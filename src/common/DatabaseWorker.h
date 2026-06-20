@@ -16,12 +16,13 @@ public:
 public slots:
     void initialize();
     void saveMessage(const QString &from, const QString &to, const QString &content);
-    void searchHistory(const QString &keyword);
+    void markRead(const QString &fromUser, const QString &toUser);
+    void searchHistory(int requestId, const QString &keyword);
 
 signals:
     void initialized(bool ok);
-    void messageSaved(bool ok);
-    void historyResult(const QJsonArray &messages);
+    void messageSaved(int msgId);
+    void historyResult(int requestId, const QJsonArray &messages);
 
 private:
     QSqlDatabase m_db;

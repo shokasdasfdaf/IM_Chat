@@ -4,6 +4,7 @@
 #include <QTcpServer>
 #include <QList>
 #include <QHash>
+#include <QPointer>
 #include <QJsonArray>
 
 class ClientHandler;
@@ -23,7 +24,10 @@ private slots:
     void onLoginRequest(const QString &username);
     void onChatMessage(const QString &to, const QString &content);
     void onHistoryRequest(const QString &keyword);
+    void onAckRequest(const QString &fromUser);
     void onClientDisconnected();
+    void onMessageSaved(int msgId);
+    void onHistoryResult(int requestId, const QJsonArray &messages);
 
 private:
     ClientHandler *findHandler(const QString &username) const;
@@ -34,4 +38,10 @@ private:
 
     DatabaseWorker *m_dbWorker;
     QThread *m_dbThread;
+
+    int m_msgCounter = 0;
+    QHash<int, QPair<QString, QString>> m_pendingMsgIds;  // msgId -> (from, to)
+
+    int m_nextHistoryRequestId = 1;
+    QHash<int, QPointer<ClientHandler>> m_pendingHistoryReqs;  // requestId -> handler
 };

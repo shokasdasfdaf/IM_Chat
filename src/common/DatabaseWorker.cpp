@@ -42,6 +42,7 @@ void DatabaseWorker::initialize()
         "  from_user TEXT NOT NULL,"
         "  to_user TEXT NOT NULL,"
         "  content TEXT NOT NULL,"
+        "  read INTEGER DEFAULT 0,"
         "  timestamp TEXT DEFAULT (datetime('now','localtime'))"
         ")"
     );
@@ -60,40 +61,60 @@ void DatabaseWorker::saveMessage(const QString &from, const QString &to, const Q
 
     if (!query.exec()) {
         qWarning() << "Save message failed:" << query.lastError().text();
-        emit messageSaved(false);
+        emit messageSaved(-1);
         return;
     }
-    qDebug() << "Message saved:" << from << "->" << to << ":" << content;
-    emit messageSaved(true);
+    int msgId = query.lastInsertId().toInt();
+    qDebug() << "Message saved:" << from << "->" << to << ":" << content << "id:" << msgId;
+    emit messageSaved(msgId);
 }
 
-void DatabaseWorker::searchHistory(const QString &keyword)
+void DatabaseWorker::markRead(const QString &fromUser, const QString &toUser)
+{
+    QSqlQuery query(m_db);
+    query.prepare("UPDATE messages SET read = 1 WHERE from_user = ? AND to_user = ? AND read = 0");
+    query.addBindValue(fromUser);
+    query.addBindValue(toUser);
+
+    if (!query.exec()) {
+        qWarning() << "Mark read failed:" << query.lastError().text();
+    }
+}
+
+void DatabaseWorker::searchHistory(int requestId, const QString &keyword)
 {
     QSqlQuery query(m_db);
     query.prepare(
-        "SELECT from_user, to_user, content, timestamp FROM messages "
-        "WHERE content LIKE ? OR from_user LIKE ? "
+        "SELECT id, from_user, to_user, content, read, timestamp FROM messages "
+        "WHERE content LIKE ? ESCAPE '\\' OR from_user LIKE ? ESCAPE '\\' "
         "ORDER BY timestamp DESC LIMIT 100"
     );
-    QString pattern = "%" + keyword + "%";
+    // 转义 LIKE 的通配符 % _ \，避免用户输入 % 匹配全部
+    QString escaped = keyword;
+    escaped.replace('\\', "\\\\")
+           .replace('%',  "\\%")
+           .replace('_',  "\\_");
+    QString pattern = "%" + escaped + "%";
     query.addBindValue(pattern);
     query.addBindValue(pattern);
 
     if (!query.exec()) {
         qWarning() << "Search history failed:" << query.lastError().text();
-        emit historyResult({});
+        emit historyResult(requestId, {});
         return;
     }
 
-    qDebug() << "History search for:" << keyword;
+    qDebug() << "History search for:" << keyword << "requestId:" << requestId;
     QJsonArray results;
     while (query.next()) {
         QJsonObject msg;
-        msg["from"] = query.value(0).toString();
-        msg["to"]   = query.value(1).toString();
-        msg["content"] = query.value(2).toString();
-        msg["time"] = query.value(3).toString();
+        msg["id"] = query.value(0).toInt();
+        msg["from"] = query.value(1).toString();
+        msg["to"]   = query.value(2).toString();
+        msg["content"] = query.value(3).toString();
+        msg["read"] = query.value(4).toInt();
+        msg["time"] = query.value(5).toString();
         results.append(msg);
     }
-    emit historyResult(results);
+    emit historyResult(requestId, results);
 }
