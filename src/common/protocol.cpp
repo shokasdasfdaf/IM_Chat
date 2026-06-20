@@ -1,6 +1,7 @@
 #include "protocol.h"
 #include <QDataStream>
 #include <QHash>
+#include <QDebug>
 
 namespace {
     thread_local QHash<QTcpSocket *, QByteArray> s_buffers;
@@ -36,21 +37,38 @@ void Protocol::sendMessage(QTcpSocket *socket, const QByteArray &data)
 QList<QJsonObject> Protocol::receiveMessages(QTcpSocket *socket)
 {
     QList<QJsonObject> messages;
+    if (!socket)
+        return messages;
+
     QByteArray raw = socket->readAll();
 
-    // 追加到内部缓冲区
+    // 首次见到此 socket：挂 destroyed 信号自动清缓冲，防止裸指针被新 socket 复用串台
+    if (!s_buffers.contains(socket)) {
+        QObject::connect(socket, &QObject::destroyed, [](QObject *obj) {
+            s_buffers.remove(static_cast<QTcpSocket *>(obj));
+        });
+    }
     QByteArray &buffer = s_buffers[socket];
     buffer.append(raw);
 
-    // 解析长度头 + JSON
     while (buffer.size() >= 4) {
         quint32 len;
         QDataStream stream(buffer.left(4));
         stream.setByteOrder(QDataStream::BigEndian);
         stream >> len;
 
+        // 防御：包长超过上限直接断连，避免 hang 住等数据 / 内存爆掉
+        if (len > MAX_PACKET_SIZE) {
+            qWarning() << "Protocol: packet length" << len
+                       << "exceeds MAX_PACKET_SIZE, aborting socket"
+                       << socket->peerAddress().toString();
+            buffer.clear();
+            socket->abort();
+            return messages;
+        }
+
         if ((quint32)buffer.size() < 4 + len)
-            break; // 数据未到齐
+            break;
 
         QByteArray jsonData = buffer.mid(4, len);
         buffer.remove(0, 4 + len);
@@ -59,6 +77,8 @@ QList<QJsonObject> Protocol::receiveMessages(QTcpSocket *socket)
         QJsonDocument doc = QJsonDocument::fromJson(jsonData, &error);
         if (error.error == QJsonParseError::NoError && doc.isObject()) {
             messages.append(doc.object());
+        } else {
+            qWarning() << "Protocol: invalid JSON dropped, error:" << error.errorString();
         }
     }
 
@@ -80,12 +100,14 @@ QJsonObject Protocol::buildLogin(const QString &username)
     return json;
 }
 
-QJsonObject Protocol::buildChat(const QString &to, const QString &content)
+QJsonObject Protocol::buildChat(const QString &to, const QString &content, int msgId)
 {
     QJsonObject json;
     json["type"] = CHAT;
     json["to"] = to;
     json["content"] = content;
+    if (msgId > 0)
+        json["msg_id"] = msgId;
     return json;
 }
 
@@ -94,6 +116,14 @@ QJsonObject Protocol::buildHistory(const QString &keyword)
     QJsonObject json;
     json["type"] = HISTORY;
     json["keyword"] = keyword;
+    return json;
+}
+
+QJsonObject Protocol::buildAck(const QString &fromUser)
+{
+    QJsonObject json;
+    json["type"] = ACK;
+    json["from"] = fromUser;
     return json;
 }
 
@@ -132,12 +162,14 @@ QJsonObject Protocol::buildUserLeft(const QString &username)
     return json;
 }
 
-QJsonObject Protocol::buildChatMessage(const QString &from, const QString &content)
+QJsonObject Protocol::buildChatMessage(const QString &from, const QString &content, int msgId)
 {
     QJsonObject json;
     json["type"] = CHAT;
     json["from"] = from;
     json["content"] = content;
+    if (msgId > 0)
+        json["msg_id"] = msgId;
     return json;
 }
 
@@ -146,5 +178,13 @@ QJsonObject Protocol::buildHistoryResult(const QJsonArray &messages)
     QJsonObject json;
     json["type"] = HISTORY_RESULT;
     json["messages"] = messages;
+    return json;
+}
+
+QJsonObject Protocol::buildMsgRead(int msgId)
+{
+    QJsonObject json;
+    json["type"] = MSG_READ;
+    json["msg_id"] = msgId;
     return json;
 }
